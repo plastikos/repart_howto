@@ -1,0 +1,165 @@
+#!/bin/bash
+
+set -eu
+
+THIS_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+MKOSI_BASE="$THIS_DIR/mkosi-base"
+KEY_BIN="$THIS_DIR/key.bin"
+CACHE_DIR="$THIS_DIR/cache"
+
+IMAGE_SIZE="128M"
+
+VERBOSE=
+FLAVOR=
+BUILD_DIR=
+RUN_ARGS=()
+
+
+setup() {
+    set +x
+    printf "\n=> Setup Files\n"
+    [ -z "$VERBOSE" ] || set -x
+    mkdir -p "$CACHE_DIR"
+
+    # NOTE: This generates an encryption key that is available through some internal, programatic
+    #       function running on a system.  It is managed by fscrypt.socket and fscrypt@.service (see
+    #       unit files in mkosi-base/mkosi.extra/usr/lib/systemd/system.  This is for
+    #       testing/demonstration purposes ONLY and is not intended to be an example of a secure way to
+    #       encrypt a file system.
+    if ! [ -e "$KEY_BIN" ]; then
+        dd if=/dev/random of="$KEY_BIN" bs=2041 count=1
+    fi
+
+    rsync -av --delete --exclude=\*~ "$MKOSI_BASE/" "$BUILD_DIR/"
+    if [ -d "$THIS_DIR/mkosi-$FLAVOR" ]; then
+        rsync -av --exclude=\*~ "$THIS_DIR/mkosi-$FLAVOR/" "$BUILD_DIR/"
+    fi
+
+    if [ "crypt" = "$FLAVOR" ]; then
+        if ! cmp "$KEY_BIN" "$BUILD_DIR/mkosi.extra/var/lib/key.bin"; then
+            cp "$KEY_BIN" "$BUILD_DIR/mkosi.extra/var/lib/"
+        fi
+    fi
+}
+
+
+build() {
+    set +x
+    printf "\n=> Build Image\n"
+    [ -z "$VERBOSE" ] || set -x
+    mkosi						\
+        --debug						\
+        --incremental					\
+        --cache-dir "$CACHE_DIR/cache"			\
+        --package-cache-dir "$CACHE_DIR/pkgcache"	\
+        -C "$BUILD_DIR"					\
+        build
+
+    disktype "$BUILD_DIR/image.raw"
+}
+
+
+expand() {
+    # Simulate the image being written to a larger device that has space for repart to work.
+    dd if=/dev/zero of="$BUILD_DIR/image.raw" count=1 bs=1024 seek="$IMAGE_SIZE" conv=notrunc
+    disktype "$BUILD_DIR/image.raw"
+}
+
+
+run() {
+    set +x
+    printf "\n=> Run Image\n"
+    [ -z "$VERBOSE" ] || set -x
+    mkosi										\
+        --debug										\
+        -C "$BUILD_DIR"									\
+        --kernel-command-line-extra=" systemd.debug-shell=1 systemd.log_level=debug"	\
+        ${RUN_ARGS[@]:+"${RUN_ARGS[@]}"}						\
+        qemu
+    disktype "$BUILD_DIR/image.raw"
+}
+
+
+usage() {
+    cat <<-EOF
+	$0 -h|--help
+	$0 [-v|--verbose] [-g|--gui] <FLAVOR>
+	EOF
+}
+
+
+help() {
+    cat <<-EOF
+	$0 -h|--help
+	$0 [-v|--verbose] [-g|--gui] <FLAVOR>
+
+	ARGUMENTS and OPTIONS:
+
+	    -h|--help     Print this help and exit
+	    -g|--gui      Run QEMU in GUI mode rather than serial mode
+	    -v|--verbose  Turn on verbose mode to emit commands that are executed
+
+	    <FLAVOR>:
+	        clear:    Demo a repartition of storage sans encryption
+	        crypt:    Demo a repartition of storage using encryption
+	EOF
+}
+
+
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            (clear|crypt)
+                FLAVOR="$1"
+                shift
+                ;;
+            (-h|--help)
+                shift
+                help
+                exit 0
+                ;;
+            (-g|--gui)
+                shift
+                RUN_ARGS+=(--qemu-gui)
+                ;;
+            (-v|--verbose)
+                shift
+                VERBOSE=1
+                set -x
+                ;;
+            (*)
+                set +x
+                printf "ERROR: Bad option or argument: %s\n\n" "$1" >&2
+                [ -z "$VERBOSE" ] || set -x
+                usage >&2
+                exit 64  # EX_USAGE
+                ;;
+        esac
+    done
+    if [ -z "$FLAVOR" ]; then
+        set -x
+        printf "ERROR: <FLAVOR> required\n\n" >&2
+        [ -z "$VERBOSE" ] || set -x
+        usage >&2
+        exit 64  # EX_USAGE
+    fi
+    BUILD_DIR="$THIS_DIR/build-$FLAVOR"
+}
+
+
+main() {
+    parse_args ${@:+"$@"}
+    setup
+    build
+    expand
+    run
+}
+
+
+main ${@:+"$@"}
+
+
+# Local Variables:
+# fill-column: 100
+# End:

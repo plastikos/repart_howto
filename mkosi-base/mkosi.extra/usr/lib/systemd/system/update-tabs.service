@@ -1,0 +1,39 @@
+# This checks to see if the fstab or crypttab has changed with the
+# last invocation of systemd-repart and updates the analogous files in
+# /etc.  If either has changed then systemd is reloaded so that new
+# mount points can be processed.
+
+[Unit]
+Description=Check and update fstab or crypttab if they have changed
+
+ConditionPathExists=/run/fstab
+ConditionPathIsReadWrite=/etc
+
+DefaultDependencies=no
+Requires=systemd-repart.service
+After=systemd-repart.service
+Before=basic.target
+Before=shutdown.target
+Conflicts=shutdown.target
+FailureAction=reboot-force
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment="TMP_FSTAB=/run/fstab"
+ExecStart=/bin/sh -c '									\
+    set -x;										\
+    cat /etc/fstab;									\
+    cat "$TMP_FSTAB";									\
+    status=0;										\
+    if [ "$(sort "$TMP_FSTAB" | md5sum)" != "$(sort /etc/fstab | md5sum)" ]; then	\
+        /bin/mv -f "$TMP_FSTAB" /etc/fstab;						\
+        status=75;									\
+    else										\
+        rm -f "$TMP_FSTAB";								\
+    fi;											\
+    exit "$status";									\
+'
+
+[Install]
+WantedBy=basic.target

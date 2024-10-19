@@ -1,0 +1,18 @@
+#!/bin/sh
+
+set -eux
+
+env | sort
+
+THIS_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+dpkg-query -W systemd\*
+
+# Enable custom systemd units
+systemctl enable				\
+    test-poweroff.service			\
+    update-tabs.service
+
+if [ -e /usr/lib/systemd/system/fscrypt.socket ]; then
+    systemctl enable fscrypt.socket
+fi

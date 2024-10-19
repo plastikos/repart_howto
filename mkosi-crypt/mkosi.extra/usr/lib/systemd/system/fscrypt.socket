@@ -1,0 +1,22 @@
+[Unit]
+Description=Socket for reading file system encryption credentials
+
+DefaultDependencies=no
+Before=cryptdisks-early.service systemd-repart.service
+
+# recommended by "man systemd.socket"
+CollectMode=inactive-or-failed
+
+[Socket]
+ListenStream=/run/fscrypt.sock
+SocketUser=root
+SocketGroup=root
+SocketMode=0600
+RemoveOnStop=true
+
+# execute a new Service process for each request
+Accept=yes
+
+[Install]
+WantedBy=cryptdisks-early.target
+WantedBy=systemd-repart.service

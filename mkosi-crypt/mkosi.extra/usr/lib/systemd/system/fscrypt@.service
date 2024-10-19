@@ -1,0 +1,19 @@
+[Unit]
+Description=Obtain LUKS key for file system %I decryption
+
+DefaultDependencies=no
+Requires=fscrypt.socket
+Before=systemd-cryptsetup@%i.service
+
+[Service]
+Type=simple
+RuntimeMaxSec=10
+ExecStart=/usr/bin/getkey
+StandardOutput=socket
+StandardError=journal
+# ignore the LUKS request packet which specifies the volume (man crypttab)
+StandardInput=null
+
+[Install]
+DefaultInstance=xdata
+RequiredBy=systemd-cryptsetup@%i.service

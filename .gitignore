@@ -1,0 +1,7 @@
+*~
+*#
+*.pdf
+build*
+cache
+_fetch
+key.bin
