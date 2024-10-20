@@ -8,7 +8,7 @@ Before=systemd-cryptsetup@%i.service
 [Service]
 Type=simple
 RuntimeMaxSec=10
-ExecStart=/usr/bin/getkey
+ExecStart=/usr/bin/getkey "%I"
 StandardOutput=socket
 StandardError=journal
 # ignore the LUKS request packet which specifies the volume (man crypttab)

@@ -1,2 +1,4 @@
 #!/bin/sh
+volume="$1"
+printf "getkey: volume=%s\n" "$volume" >&2
 cat /var/lib/key.bin
