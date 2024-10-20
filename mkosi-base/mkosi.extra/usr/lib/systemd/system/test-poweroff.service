@@ -10,7 +10,7 @@ FailureAction=poweroff-force
 
 [Service]
 Type=simple
-Environment="SLEEP_TIME_S=300"
+Environment="SLEEP_TIME_S=30"
 ExecStart=/bin/sh -c '		\
     set -x;			\
     sleep "$SLEEP_TIME_S";	\
