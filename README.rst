@@ -308,10 +308,12 @@ The user account running the examples will need to be added to the ``kvm`` group
                          be implicit blocks of zero.
 
 .. [UBUNTU24] The Ubuntu 24.10 distribution was selected as the base because it has a resent
-   ``systemd`` version.  A minimum version of ``systemd`` 254 is necessary for various features of
-   ``systemd-gpt-auto-generator`` (``systemd.swap=``, ``systemd.image_policy=``).  It is assumed
-   that any distribution that meets this requirement can work with a reasonably-adapted
-   implementation of what is described in this document.
+   ``systemd`` version.  A minimum version of ``systemd`` 256 is necessary for various features of
+   ``systemd-gpt-auto-generator`` (``systemd.swap=``, ``systemd.image_policy=`` added in 254) and
+   necessary features in ``systemd-repart`` (``EncryptedVolume=`` and ``MountPoint=`` added in 256).
+   It is assumed that any distribution that meets this requirement can work with a
+   reasonably-adapted implementation of what is described in this document.
+
 
 .. [TPM] ``systemd-cryptsetup`` and related tooling support setting up a TPM and making direct-use
          of it.
