@@ -11,13 +11,16 @@ FailureAction=poweroff-force
 [Service]
 Type=simple
 Environment="SLEEP_TIME_S=30"
+# Wait to shutdown and then gather some details
 ExecStart=/bin/sh -c '		\
     set -x;			\
+    env;			\
     sleep "$SLEEP_TIME_S";	\
     mount;			\
     cat /etc/fstab;		\
     cat /etc/crypttab;		\
     fdisk -l;			\
+    pstree -pan;		\
     exit 1;			\
 '
 

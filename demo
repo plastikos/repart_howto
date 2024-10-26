@@ -14,6 +14,10 @@ VERBOSE=
 FLAVOR=
 BUILD_DIR=
 RUN_ARGS=()
+KERNEL_CL_ARGS=(
+    systemd.debug-shell=1
+    systemd.log_level=debug
+)
 
 
 setup() {
@@ -28,7 +32,7 @@ setup() {
     #       testing/demonstration purposes ONLY and is not intended to be an example of a secure way to
     #       encrypt a file system.
     if ! [ -e "$KEY_BIN" ]; then
-        dd if=/dev/random of="$KEY_BIN" bs=2041 count=1
+        dd if=/dev/random of="$KEY_BIN" bs=2048 count=1
     fi
 
     rsync -av --delete --exclude=\*~ "$MKOSI_BASE/" "$BUILD_DIR/"
@@ -37,9 +41,13 @@ setup() {
     fi
 
     if [ "crypt" = "$FLAVOR" ]; then
-        if ! cmp "$KEY_BIN" "$BUILD_DIR/mkosi.extra/var/lib/key.bin"; then
-            cp "$KEY_BIN" "$BUILD_DIR/mkosi.extra/var/lib/"
-        fi
+        cp "$KEY_BIN" "$BUILD_DIR/mkosi.passphrase"
+        cp "$KEY_BIN" "$BUILD_DIR/mkosi.extra/var/lib/"
+	chmod 600 "$BUILD_DIR/mkosi.passphrase" "$BUILD_DIR/mkosi.extra/var/lib/key.bin"
+    fi
+
+    if [ -d "$THIS_DIR/mkosi.packages" ]; then
+        ln -snf ../mkosi.packages "$BUILD_DIR/mkosi.packages"
     fi
 }
 
@@ -71,11 +79,11 @@ run() {
     set +x
     printf "\n=> Run Image\n"
     [ -z "$VERBOSE" ] || set -x
-    mkosi										\
-        --debug										\
-        -C "$BUILD_DIR"									\
-        --kernel-command-line-extra=" systemd.debug-shell=1 systemd.log_level=debug"	\
-        ${RUN_ARGS[@]:+"${RUN_ARGS[@]}"}						\
+    mkosi							\
+        --debug							\
+        -C "$BUILD_DIR"						\
+        --kernel-command-line-extra=" ${KERNEL_CL_ARGS[*]}"	\
+        ${RUN_ARGS[@]:+"${RUN_ARGS[@]}"}			\
         qemu
     disktype "$BUILD_DIR/image.raw"
 }
@@ -96,8 +104,9 @@ help() {
 
 	ARGUMENTS and OPTIONS:
 
-	    -h|--help     Print this help and exit
 	    -g|--gui      Run QEMU in GUI mode rather than serial mode
+	    -h|--help     Print this help and exit
+	    -i|--interactive  Leave teh VM running for inspection
 	    -v|--verbose  Turn on verbose mode to emit commands that are executed
 
 	    <FLAVOR>:
@@ -114,14 +123,18 @@ parse_args() {
                 FLAVOR="$1"
                 shift
                 ;;
+            (-g|--gui)
+                shift
+                RUN_ARGS+=(--qemu-gui)
+                ;;
             (-h|--help)
                 shift
                 help
                 exit 0
                 ;;
-            (-g|--gui)
+            (-i|--interactive)
                 shift
-                RUN_ARGS+=(--qemu-gui)
+                KERNEL_CL_ARGS+=(systemd.mask=test-poweroff.service)
                 ;;
             (-v|--verbose)
                 shift
